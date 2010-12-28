@@ -9,8 +9,6 @@ class Array
 
 end
 
-class Win < StandardError; end
-
 COLORS = [ :red, :green, :blue, :yellow ]
 ACTIONS = [ :skip, :reverse, :plus2 ]
 
@@ -90,7 +88,22 @@ class Player
   end
 
   def playable_cards
-    @hand.select { |c| c.play_on? @game.top_card }
+
+    @hand.select do |c|
+
+      if @game.draw_amount == 0
+        c.play_on? @game.top_card
+      else
+
+        case c.value
+        when :plus2, :plus4 then true
+        else false
+        end
+
+      end
+
+    end
+
   end
 
   def play_card
@@ -107,7 +120,7 @@ class Player
 end
 
 class Uno
-  attr_reader :round, :winner
+  attr_reader :round, :winner, :draw_amount
 
   def initialize n
     @players = Array.new(n) { |n| Player.new n.to_s, self }
@@ -116,6 +129,8 @@ class Uno
     @round = 0
     7.times { @players.each { |p| p.draw_card } }
     @discard.push @draw.pop
+    @action = nil
+    @draw_amount = 0
   end
 
   def new_deck
@@ -164,27 +179,57 @@ class Uno
     @draw.pop
   end
 
+  def set_next_action
+
+    case top_card.value
+    when :plus4
+      @action = :draw
+      @draw_amount += 4
+
+    when :plus2
+      @action = :draw
+      @draw_amount += 2
+
+    when :skip
+      @action = :skip
+
+    when :reverse
+      @action = :reverse
+
+    else
+      @action = nil
+      @draw_amount = 0
+    end
+
+  end
+
   def play_round
     @round += 1
 
     @players.each do |p|
 
-      case @penalty
-      when :plus4
-        4.times { p.draw_card }
+      case @action
+      when :draw
 
-      when :plus2
-        2.times { p.draw_card }
+        if p.can_play?
+          p.play_card
+          set_next_action
+        else
+          @draw_amount.times { p.draw_card }
+          @draw_amount = 0
+        end
 
       when :skip
-        # do nothing this turn
+        @action = nil
 
       when :reverse
         @players.reverse!
+        @action = nil
 
       else
         p.draw_card until p.can_play?
         p.play_card
+        set_next_action
       end
 
       if p.hand.empty?
@@ -198,7 +243,8 @@ class Uno
 
 end
 
-1000.times do
+#1000.times do
+10.times do
   uno = Uno.new 5
   uno.play_round until uno.winner
   puts "p#{uno.winner.name} r#{uno.round}"
