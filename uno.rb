@@ -1,5 +1,14 @@
 require 'ruby-debug'
 
+class Array
+
+  def pick_random
+    i = rand size
+    self[i]
+  end
+
+end
+
 COLORS = [ :red, :green, :blue, :yellow ]
 ACTIONS = [ :skip, :reverse, :plus2 ]
 
@@ -104,17 +113,12 @@ class Player
   end
 
   def play_card
-    c = @playable_cards.sort_by { rand }.first
+    c = @playable_cards.pick_random
     @hand.delete c
-    c.color = pick_color if c.wild?
+    c.color = COLORS.pick_random if c.wild?
     @game.discard.push c
     @game.set_next_action
     @playable_cards = []
-  end
-
-  def pick_color
-    i = rand COLORS.size
-    COLORS[i]
   end
 
 end
