@@ -1,14 +1,5 @@
 require 'ruby-debug'
 
-class Array
-
-  def shuffle!
-    size.downto(1) { |n| push delete_at(rand(n)) }
-    self
-  end
-
-end
-
 COLORS = [ :red, :green, :blue, :yellow ]
 ACTIONS = [ :skip, :reverse, :plus2 ]
 
@@ -49,6 +40,31 @@ class Card
     @wild
   end
 
+  def Card.deck
+    deck = []
+
+    # 4 of each wild type
+    4.times {
+      deck << Card.new(nil, nil, true)
+      deck << Card.new(nil, nil, :plus4)
+    }
+
+    # one 0 for each color
+    COLORS.each { |c| deck << Card.new(c, 0) }
+
+    # two of each action and number per color
+    2.times do
+
+      COLORS.each do |c|
+        ACTIONS.each { |a| deck << Card.new(c, a) }
+        (1..9).each { |n| deck << Card.new(c, n) }
+      end
+
+    end
+
+    deck
+  end
+
 end
 
 class Player
@@ -62,7 +78,9 @@ class Player
   end
 
   def draw_card
-    @hand << @game.draw_card
+    @game.recycle_discard_into_draw if @game.draw.empty?
+    c = @game.draw.pop
+    @hand << c
   end
 
   def can_play?
@@ -92,21 +110,24 @@ class Player
     c = playable_cards.first
     @hand.delete c
     c.color = pick_color if c.wild?
-    @game.play_card c
+    @game.discard.push c
+    @game.set_next_action
   end
 
   def pick_color
-    :blue
+    i = rand COLORS.size
+    COLORS[i]
   end
 
 end
 
 class Uno
   attr_reader :round, :winner, :draw_amount
+  attr_reader :discard, :draw
 
   def initialize n
     @players = Array.new(n) { |n| Player.new n.to_s, self }
-    @draw = new_deck
+    @draw = Card.deck.sort_by { rand }
     @discard = []
     @round = 0
     7.times { @players.each { |p| p.draw_card } }
@@ -115,50 +136,15 @@ class Uno
     @draw_amount = 0
   end
 
-  def new_deck
-    deck = []
-
-    # 4 of each wild type
-    4.times {
-      deck << Card.new(nil, nil, true)
-      deck << Card.new(nil, nil, :plus4)
-    }
-
-    # one 0 for each color
-    COLORS.each { |c| deck << Card.new(c, 0) }
-
-    # two of each action and number per color
-    2.times do
-
-      COLORS.each do |c|
-        ACTIONS.each { |a| deck << Card.new(c, a) }
-        (1..9).each { |n| deck << Card.new(c, n) }
-      end
-
-    end
-
-    deck.shuffle!
-  end
-
   def top_card
     @discard.last
   end
 
-  def play_card c
-    @discard.push c
-  end
-
-  def draw_card
-
-    if @draw.empty?
-      top = @discard.pop
-      raise "no more cards" if @discard.empty?
-      @draw = @discard
-      @discard = [top]
-      @draw.shuffle!
-    end
-
-    @draw.pop
+  def recycle_discard_into_draw
+    top = @discard.pop
+    raise "no more cards" if @discard.empty?
+    @draw = @discard.sort_by { rand }
+    @discard = [top]
   end
 
   def set_next_action
@@ -185,6 +171,11 @@ class Uno
 
   end
 
+  def reset_action
+    @action = nil
+    @draw_amount = 0
+  end
+
   def play_round
     @round += 1
 
@@ -195,15 +186,13 @@ class Uno
 
         if p.can_play?
           p.play_card
-          set_next_action
         else
           @draw_amount.times { p.draw_card }
-          @draw_amount = 0
-          @action = nil
+          reset_action
         end
 
       when :skip
-        @action = nil
+        reset_action
 
       when :reverse
         @players.reverse!
@@ -212,7 +201,6 @@ class Uno
       else
         p.draw_card until p.can_play?
         p.play_card
-        set_next_action
       end
 
       if p.hand.empty?
