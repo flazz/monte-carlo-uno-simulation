@@ -15,9 +15,10 @@ ACTIONS = [ :skip, :reverse, :plus2 ]
 class Card
 
   attr_reader :color, :value
+  attr_writer :color
 
-  def initialize color, value=nil
-    @color, @value = color, value
+  def initialize color, value=nil, wild=false
+    @color, @value, @wild = color, value, wild
   end
 
   def to_s
@@ -32,7 +33,7 @@ class Card
 
   def play_on? c
 
-    if kind_of? WildCard
+    if @wild
       true
     elsif @color == c.color
       true
@@ -44,27 +45,8 @@ class Card
 
   end
 
-
-end
-
-class WildCard < Card
-
-  attr_writer :color
-
-  def initialize value=nil
-    @value = value
-    @color = nil
-  end
-
-  def to_s
-    n = @value ?  "w+4" : "w"
-
-    if @color
-      "#{n}(#{@color.to_s[0..0]})"
-    else
-      n
-    end
-
+  def wild?
+    @wild
   end
 
 end
@@ -109,7 +91,7 @@ class Player
   def play_card
     c = playable_cards.first
     @hand.delete c
-    c.color = pick_color if c.kind_of? WildCard
+    c.color = pick_color if c.wild?
     @game.play_card c
   end
 
@@ -138,8 +120,8 @@ class Uno
 
     # 4 of each wild type
     4.times {
-      deck << WildCard.new
-      deck << WildCard.new(:plus4)
+      deck << Card.new(nil, nil, true)
+      deck << Card.new(nil, nil, :plus4)
     }
 
     # one 0 for each color
@@ -217,6 +199,7 @@ class Uno
         else
           @draw_amount.times { p.draw_card }
           @draw_amount = 0
+          @action = nil
         end
 
       when :skip
@@ -243,8 +226,7 @@ class Uno
 
 end
 
-#1000.times do
-10.times do
+1000.times do
   uno = Uno.new 5
   uno.play_round until uno.winner
   puts "p#{uno.winner.name} r#{uno.round}"
