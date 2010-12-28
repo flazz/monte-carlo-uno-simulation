@@ -75,6 +75,7 @@ class Player
     @name = name
     @game = game
     @hand = []
+    @playable_cards = []
   end
 
   def draw_card
@@ -83,35 +84,32 @@ class Player
     @hand << c
   end
 
-  def can_play?
-    playable_cards.any?
-  end
-
-  def playable_cards
+  def select_playable_cards
 
     @hand.select do |c|
 
       if @game.draw_amount == 0
         c.play_on? @game.top_card
       else
-
-        case c.value
-        when :plus2, :plus4 then true
-        else false
-        end
-
+        [:plus2, :plus4].include? c.value
       end
 
     end
 
   end
 
+  def can_play?
+    @playable_cards = select_playable_cards
+    @playable_cards.any?
+  end
+
   def play_card
-    c = playable_cards.first
+    c = @playable_cards.sort_by { rand }.first
     @hand.delete c
     c.color = pick_color if c.wild?
     @game.discard.push c
     @game.set_next_action
+    @playable_cards = []
   end
 
   def pick_color
@@ -165,8 +163,7 @@ class Uno
       @action = :reverse
 
     else
-      @action = nil
-      @draw_amount = 0
+      reset_action
     end
 
   end
@@ -196,7 +193,7 @@ class Uno
 
       when :reverse
         @players.reverse!
-        @action = nil
+        reset_action
 
       else
         p.draw_card until p.can_play?
