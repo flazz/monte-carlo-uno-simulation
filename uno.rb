@@ -2,7 +2,7 @@ require 'ruby-debug'
 
 class Array
 
-  def pick_random
+  def take_random
     i = rand size
     self[i]
   end
@@ -113,9 +113,9 @@ class Player
   end
 
   def play_card
-    c = @playable_cards.pick_random
+    c = @playable_cards.take_random
     @hand.delete c
-    c.color = COLORS.pick_random if c.wild?
+    c.color = COLORS.take_random if c.wild?
     @game.discard.push c
     @game.set_next_action
     @playable_cards = []
@@ -124,18 +124,28 @@ class Player
 end
 
 class Uno
-  attr_reader :round, :winner, :draw_amount
-  attr_reader :discard, :draw
+  attr_reader :rounds, :winner, :recycles
+  attr_reader :discard, :draw, :draw_amount
 
   def initialize n
-    @players = Array.new(n) { |n| Player.new n.to_s, self }
+    @players = Array.new(n) { |n| Player.new n, self }
     @draw = Card.deck.sort_by { rand }
     @discard = []
-    @round = 0
     7.times { @players.each { |p| p.draw_card } }
     @discard.push @draw.pop
+
+    # action
     @action = nil
     @draw_amount = 0
+
+    # stats
+    @rounds = 0
+    @recycles = 0
+    @winner = nil
+  end
+
+  def report
+    [@winner.name, @rounds, @recycles].join ', '
   end
 
   def top_card
@@ -143,6 +153,7 @@ class Uno
   end
 
   def recycle_discard_into_draw
+    @recycles += 1
     top = @discard.pop
     raise "no more cards" if @discard.empty?
     @draw = @discard.sort_by { rand }
@@ -178,7 +189,7 @@ class Uno
   end
 
   def play_round
-    @round += 1
+    @rounds += 1
 
     @players.each do |p|
 
@@ -218,5 +229,5 @@ end
 1000.times do
   uno = Uno.new 5
   uno.play_round until uno.winner
-  puts "p#{uno.winner.name} r#{uno.round}"
+  puts uno.report
 end
