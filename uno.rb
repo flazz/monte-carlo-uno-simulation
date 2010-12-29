@@ -145,7 +145,7 @@ class Uno
   end
 
   def report
-    [@winner.name, @rounds, @recycles].join ', '
+    [@winner, @rounds, @recycles].join ','
   end
 
   def top_card
@@ -216,7 +216,7 @@ class Uno
       end
 
       if p.hand.empty?
-        @winner = p
+        @winner = @players.index p
         break
       end
 
@@ -226,7 +226,7 @@ class Uno
 
 end
 
-1000.times do
+10000.times do
   uno = Uno.new 5
   uno.play_round until uno.winner
   puts uno.report
